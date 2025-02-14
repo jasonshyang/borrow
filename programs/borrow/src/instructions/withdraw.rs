@@ -1,7 +1,9 @@
+use std::f64::consts::E;
+
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked}};
 
-use crate::state::{Bank, User};
+use crate::{math::checked_div_f64, state::{Bank, User}};
 use crate::error::ErrorCode::InsufficientFunds;
 
 #[derive(Accounts)]
@@ -51,16 +53,23 @@ pub fn process_withdraw(
     amount: u64,
 ) -> Result<()> {
     let user = &mut ctx.accounts.user_account;
+    let bank = &mut ctx.accounts.bank;
 
-    let deposited_value: u64;
+    let deposited_value: u64 = match ctx.accounts.mint.key() {
+        key if key == user.usdc_address => user.deposited_usdc,
+        _ => user.deposited_sol,
+    };
 
-    if ctx.accounts.mint.key() == user.usdc_address {
-        deposited_value = user.deposited_usdc;
-    } else {
-        deposited_value = user.deposited_sol;    
-    }
+    let time_diff = user.last_updated_deposit - Clock::get()?.unix_timestamp;
 
-    if amount > deposited_value {
+    bank.total_deposits = (bank.total_deposits as f64 
+        * E.powf(bank.interest_rate as f64 * time_diff as f64)) as u64;
+    
+    let value_per_share = checked_div_f64(bank.total_deposits as f64, bank.total_deposit_shares as f64)?;
+
+    let user_value = checked_div_f64(deposited_value as f64, value_per_share)?;
+
+    if user_value < amount as f64 {
         return Err(InsufficientFunds.into());
     }
 

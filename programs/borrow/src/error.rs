@@ -6,4 +6,14 @@ pub enum ErrorCode {
     DepositRatioOverflow,
     #[msg("Insufficient funds")]
     InsufficientFunds,
+    #[msg("Overpayment")]
+    Overpayment,
+    #[msg("Invalid token account")]
+    InvalidTokenAccount,
+    #[msg("Math error")]
+    MathError,
+    #[msg("Insufficient collateral")]
+    InsufficientCollateral,
+    #[msg("Invalid liquidation")]
+    InvalidLiquidation,
 }
